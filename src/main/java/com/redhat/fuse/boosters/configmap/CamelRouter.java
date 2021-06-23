@@ -15,7 +15,12 @@
  */
 package com.redhat.fuse.boosters.configmap;
 
+import org.apache.camel.Exchange;
+import org.apache.camel.Processor;
 import org.apache.camel.builder.RouteBuilder;
+import org.apache.camel.component.file.GenericFileMessage;
+import org.apache.camel.component.file.remote.RemoteFile;
+import org.apache.camel.component.kafka.KafkaConstants;
 import org.springframework.stereotype.Component;
 
 /**
@@ -23,14 +28,7 @@ import org.springframework.stereotype.Component;
  * 
  */
 
-/*
- * 
- * 
- * ip: 190.107.177.159
-puerto: 8222
-usuario: rmendes
-pass: FelipeEuAmoVocetá
- */
+
 @Component
 public class CamelRouter extends RouteBuilder {
 	
@@ -40,9 +38,17 @@ public class CamelRouter extends RouteBuilder {
 
         // @formatter:off
     	from("ftp://{{ftp.server.user}}@{{ftp.server.url}}{{ftp.server.dir}}?autoCreate=false&password={{ftp.server.password}}&passiveMode=true&localWorkDirectory=/tmp&move=finished&moveFailed=error")
+    	.process(new Processor() {
+			@Override
+			public void process(Exchange exchange) throws Exception {
+				exchange.getIn().setHeader(KafkaConstants.KEY, ((GenericFileMessage<?>)exchange.getIn()).getGenericFile().getFileName());
+				
+			}
+		})
     	.to("kafka:{{kafka.topic.name}}?brokers={{kafka.bootstrap.url}}:{{kafka.bootstrap.port}}&maxRequestSize=100000000");
     	
-    	from("kafka:test-wom-meta?brokers=10.74.180.213:9092&maxPartitionFetchBytes=100000000&autoOffsetReset=earliest").to("file:/tmp");
+    	from("kafka:{{kafka.topic.name}}?brokers={{kafka.bootstrap.url}}:{{kafka.bootstrap.port}}&maxPartitionFetchBytes=100000000&consumerRequestTimeoutMs=60000")
+    	.to("file:/tmp");
     	
 
         // @formatter:on
